@@ -28,12 +28,13 @@ def add_message(msg, agent="ai", stream=True, store=True):
     if stream and isinstance(msg, str):
         msg = stream_str(msg)
 
-    with st.chat_message(agent, avatar="logo2.png"):  # Set chatbot avatar
-        if stream:
-            output = st.write_stream(msg)
-        else:
-            output = msg
-            st.write(msg)
+    with st.container():
+        with st.chat_message(agent, avatar="logo2.png"):  # Set chatbot avatar
+            if stream:
+                output = st.write_stream(msg)
+            else:
+                output = msg
+                st.write(msg)
 
     if store:
         st.session_state.messages.append(dict(agent=agent, content=output))
@@ -116,15 +117,16 @@ def stream_response(response):
 def embed(text: str):
     return CLIENT.embeddings("mistral-embed", text).data[0].embedding
 
-if st.button("🔴 Reset conversation"):  # Moved reset button next to the text input box
-    st.session_state.messages = []
+# Chatbot initialization
+add_message("Hello! Ask me anything about 🤗")
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
 for message in st.session_state.messages:
-    with st.chat_message(message["agent"], avatar="logo2.png"):  # Set chatbot avatar
-        st.write(message["content"])
+    with st.container():
+        with st.chat_message(message["agent"], avatar="logo2.png"):  # Set chatbot avatar
+            st.write(message["content"])
 
 # Directly access files from a specific path
 pdf_files_path = "database"
