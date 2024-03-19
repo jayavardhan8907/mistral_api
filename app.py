@@ -62,18 +62,19 @@ Answer:
 """
 
 def reply(query: str, index: IndexFlatL2):
-    embedding = embed(query)
-    embedding = np.array([embedding])
+    if index is not None:
+        embedding = embed(query)
+        embedding = np.array([embedding])
 
-    _, indexes = index.search(embedding, k=2)
-    context = [st.session_state.chunks[i] for i in indexes.tolist()[0]]
+        _, indexes = index.search(embedding, k=2)
+        context = [st.session_state.chunks[i] for i in indexes.tolist()[0]]
 
-    messages = [
-        ChatMessage(role="user", content=PROMPT.format(context=context, query=query))
-    ]
-    response = CLIENT.chat_stream(model="mistral-tiny", messages=messages)
+        messages = [
+            ChatMessage(role="user", content=PROMPT.format(context=context, query=query))
+        ]
+        response = CLIENT.chat_stream(model="mistral-tiny", messages=messages)
 
-    add_message(stream_response(response))
+        add_message(stream_response(response))
 
 def build_index(pdf_file_path):
     st.session_state.messages = []
@@ -142,7 +143,4 @@ if query:
 
         index: IndexFlatL2 = st.session_state.index
         reply(query, index)
-        add_message("Ready to answer your questions.")
-
-    add_message(query, agent="human", stream=False, store=True)
-    reply(query, index)
+        add_message("Ready
