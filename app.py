@@ -28,13 +28,12 @@ def add_message(msg, agent="ai", stream=True, store=True):
     if stream and isinstance(msg, str):
         msg = stream_str(msg)
 
-    with st.container():
-        with st.chat_message(agent, avatar="logo2.png"):  # Set chatbot avatar
-            if stream:
-                output = st.write_stream(msg)
-            else:
-                output = msg
-                st.write(msg)
+    with st.chat_message(agent, avatar="logo2.png"):  # Set chatbot avatar
+        if stream:
+            output = st.write_stream(msg)
+        else:
+            output = msg
+            st.write(msg)
 
     if store:
         st.session_state.messages.append(dict(agent=agent, content=output))
@@ -62,19 +61,18 @@ Answer:
 """
 
 def reply(query: str, index: IndexFlatL2):
-    if index is not None:
-        embedding = embed(query)
-        embedding = np.array([embedding])
+    embedding = embed(query)
+    embedding = np.array([embedding])
 
-        _, indexes = index.search(embedding, k=2)
-        context = [st.session_state.chunks[i] for i in indexes.tolist()[0]]
+    _, indexes = index.search(embedding, k=2)
+    context = [st.session_state.chunks[i] for i in indexes.tolist()[0]]
 
-        messages = [
-            ChatMessage(role="user", content=PROMPT.format(context=context, query=query))
-        ]
-        response = CLIENT.chat_stream(model="mistral-tiny", messages=messages)
+    messages = [
+        ChatMessage(role="user", content=PROMPT.format(context=context, query=query))
+    ]
+    response = CLIENT.chat_stream(model="mistral-tiny", messages=messages)
 
-        add_message(stream_response(response))
+    add_message(stream_response(response))
 
 def build_index(pdf_file_path):
     st.session_state.messages = []
@@ -118,14 +116,12 @@ def stream_response(response):
 def embed(text: str):
     return CLIENT.embeddings("mistral-embed", text).data[0].embedding
 
-# Chatbot initialization
-if not st.session_state.messages:
-    add_message("Hello! Ask me anything about 🤗")
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
 for message in st.session_state.messages:
-    with st.container():
-        with st.chat_message(message["agent"], avatar="logo2.png"):  # Set chatbot avatar
-            st.write(message["content"])
+    with st.chat_message(message["agent"], avatar="logo2.png"):  # Set chatbot avatar
+        st.write(message["content"])
 
 # Directly access files from a specific path
 pdf_files_path = "database"
@@ -143,4 +139,7 @@ if query:
 
         index: IndexFlatL2 = st.session_state.index
         reply(query, index)
-        add_message("Ready
+        add_message("Ready to answer your questions.")
+
+    add_message(query, agent="human", stream=False, store=True)
+    reply(query, index)
