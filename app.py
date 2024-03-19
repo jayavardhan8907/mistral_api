@@ -118,10 +118,8 @@ def embed(text: str):
     return CLIENT.embeddings("mistral-embed", text).data[0].embedding
 
 # Chatbot initialization
-add_message("Hello! Ask me anything about 🤗")
-
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+if not st.session_state.messages:
+    add_message("Hello! Ask me anything about 🤗")
 
 for message in st.session_state.messages:
     with st.container():
