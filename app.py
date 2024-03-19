@@ -127,7 +127,7 @@ for message in st.session_state.messages:
         st.write(message["content"])
 
 # Directly access files from a specific path
-pdf_files_path = "C:/Users/vardh/OneDrive/Documents/GitHub/MultiPDFchatMistral-7B/database"
+pdf_files_path = "database"
 pdf_files = [os.path.join(pdf_files_path, f) for f in os.listdir(pdf_files_path) if f.endswith('.pdf')]
 
 if not pdf_files:
