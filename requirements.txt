@@ -2,3 +2,4 @@ streamlit
 faiss-cpu
 pypdf
 mistralai
+numpy
