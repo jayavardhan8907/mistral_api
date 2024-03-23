@@ -7,7 +7,6 @@ from mistralai.client import MistralClient
 from mistralai.models.chat_completion import ChatMessage
 from pypdf import PdfReader
 
-# Set page configuration
 st.set_page_config(page_title="YOJANA SAATHI", page_icon="flag.jpeg", layout="wide")
 
 # Initialize session state attributes
@@ -20,15 +19,11 @@ if "messages" not in st.session_state:
 if "text" not in st.session_state:
     st.session_state.text = ""
 
-# Add logo, title, and chatbot avatar
-st.title("YOJANA SAATHI")
-st.image("flag.jpeg", width=50)  # Adjust width as needed
-
-def add_message(msg, agent="ai", stream=True, store=True):
+def add_message(msg, agent="ai", stream=True, store=True, avatar=None):
     if stream and isinstance(msg, str):
         msg = stream_str(msg)
 
-    with st.chat_message(agent, avatar="logo2.png"):  # Set chatbot avatar
+    with st.chat_message(agent, avatar=avatar):
         if stream:
             output = st.write_stream(msg)
         else:
@@ -36,7 +31,7 @@ def add_message(msg, agent="ai", stream=True, store=True):
             st.write(msg)
 
     if store:
-        st.session_state.messages.append(dict(agent=agent, content=output))
+        st.session_state.messages.append(dict(agent=agent, content=output, avatar=avatar))
 
 @st.cache_resource
 def get_client():
@@ -72,11 +67,9 @@ def reply(query: str, index: IndexFlatL2):
     ]
     response = CLIENT.chat_stream(model="mistral-tiny", messages=messages)
 
-    add_message(stream_response(response))
+    add_message(stream_response(response), agent="ai", avatar="logo2.png")
 
 def build_index(pdf_file_path):
-    st.session_state.messages = []
-
     if not pdf_file_path:
         st.session_state.clear()
         return
@@ -87,21 +80,31 @@ def build_index(pdf_file_path):
     for page in reader.pages:
         text += page.extract_text() + "\n\n"
 
-    st.session_state.text += text  # Append text to existing text
+    st.session_state.text += text
 
-    chunk_size = 2048  # Increased chunk size
-    chunks = [text[i: i + chunk_size] for i in range(0, len(text), chunk_size)]
+    chunk_size = 2048
+    chunks = [text[i : i + chunk_size] for i in range(0, len(text), chunk_size)]
 
-    if len(chunks) > 500:  # Increased maximum number of chunks
+    if len(chunks) > 500:
         st.error("Document is too long!")
         st.session_state.clear()
         return
 
+    st.sidebar.info(f"Indexing {len(chunks)} chunks.")
+    progress = st.sidebar.progress(0)
+
+    embeddings = []
+    for i, chunk in enumerate(chunks):
+        embeddings.append(embed(chunk))
+        progress.progress((i + 1) / len(chunks))
+
+    embeddings = np.array(embeddings)
+
     st.session_state.chunks.extend(chunks)
     if st.session_state.index is None:
-        dimension = len(embed(chunks[0]))
+        dimension = embeddings.shape[1]
         st.session_state.index = IndexFlatL2(dimension)
-    st.session_state.index.add(np.array([embed(chunk) for chunk in chunks]))
+    st.session_state.index.add(embeddings)
 
 def stream_str(s, speed=250):
     for c in s:
@@ -116,30 +119,37 @@ def stream_response(response):
 def embed(text: str):
     return CLIENT.embeddings("mistral-embed", text).data[0].embedding
 
+if st.sidebar.button("🔴 Reset conversation"):
+    st.session_state.messages = []
+
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+# Display chat messages with avatars
 for message in st.session_state.messages:
-    with st.chat_message(message["agent"], avatar="logo2.png"):  # Set chatbot avatar
+    with st.chat_message(message["agent"], avatar=message.get("avatar")):
         st.write(message["content"])
 
-# Directly access files from a specific path
+if not "text" in st.session_state:
+    # Adjusted initial message to be more generic and in bold
+    st.markdown("*How may I help you today?*", unsafe_allow_html=False)
+
 pdf_files_path = "database"
 pdf_files = [os.path.join(pdf_files_path, f) for f in os.listdir(pdf_files_path) if f.endswith('.pdf')]
 
 if not pdf_files:
     st.stop()
 
-query = st.text_input("Ask something about your PDF")
+for pdf_file_path in pdf_files:
+    build_index(pdf_file_path)
+
+index: IndexFlatL2 = st.session_state.index
+query = st.chat_input("Ask something about your PDF")
+
+if not st.session_state.messages:
+    # Removed the automatic summary generation on startup
+    add_message("How may I help you today?", agent="ai", avatar="logo2.png")
 
 if query:
-    if not st.session_state.messages:
-        for pdf_file_path in pdf_files:
-            build_index(pdf_file_path)
-
-        index: IndexFlatL2 = st.session_state.index
-        reply(query, index)
-        add_message("Ready to answer your questions.")
-
     add_message(query, agent="human", stream=False, store=True)
     reply(query, index)
